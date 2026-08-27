@@ -175,7 +175,36 @@ function incQty(id){const it=cart.find(c=>c.lineId==id); if(it){it.qty++; it.tot
 function decQty(id){const it=cart.find(c=>c.lineId==id); if(it){it.qty--; if(it.qty<=0) cart=cart.filter(c=>c.lineId!=id); else it.totalPrice=it.unitPrice*it.qty; renderCart(); updateOngkir();}}
 function removeItem(id){cart=cart.filter(c=>c.lineId!=id); renderCart(); updateOngkir();}
 function openCheckout(){document.getElementById('checkoutModal').classList.remove('hidden'); updateOngkir();}
-function getGPS(){if(!navigator.geolocation){window.open('https://maps.google.com');return;} navigator.geolocation.getCurrentPosition(p=>{document.getElementById('custMaps').value="https://www.google.com/maps?q="+p.coords.latitude+","+p.coords.longitude; updateOngkir();});}
+function getGPS(){
+  const btn=document.querySelector('button[onclick="getGPS()"]');
+  const origText=btn?btn.textContent:'GPS';
+  if(btn){btn.textContent='...'; btn.disabled=true;}
+  if(!navigator.geolocation){
+    alert('GPS tidak didukung HP ini');
+    if(btn){btn.textContent=origText; btn.disabled=false;}
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      const lat=p.coords.latitude;
+      const lng=p.coords.longitude;
+      console.log('GPS customer:', lat, lng, 'akurasi:', p.coords.accuracy+'m');
+      // Cek kalau koordinat sama persis dengan warung (kemungkinan cache)
+      if(Math.abs(lat-(-8.0959296))<0.00005 && Math.abs(lng-111.6350959)<0.00005){
+        console.warn('GPS terdeteksi sama dengan warung, mungkin masih cache - coba lagi');
+      }
+      document.getElementById('custMaps').value="https://www.google.com/maps?q="+lat+","+lng;
+      updateOngkir();
+      if(btn){btn.textContent='OK'; setTimeout(()=>{btn.textContent=origText; btn.disabled=false;}, 1000);}
+    },
+    err=>{
+      console.error('GPS error', err);
+      alert('Gagal ambil GPS: '+err.message+' - Pastikan izin lokasi aktif');
+      if(btn){btn.textContent=origText; btn.disabled=false;}
+    },
+    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+  );
+}
 function updateOngkir(){
   const mapsVal=document.getElementById('custMaps').value.trim();
   const coords=parseLatLng(mapsVal);
