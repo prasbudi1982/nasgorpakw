@@ -211,12 +211,33 @@ function updateOngkir(){
   const sub=cart.reduce((a,b)=>a+b.totalPrice,0);
   document.getElementById('subtotalVal').textContent=fmt(sub);
   const ongkirEl=document.getElementById('ongkirVal'); const noteEl=document.getElementById('ongkirNote');
-  if(!coords){curOngkir=0;curJarak=null; ongkirEl.textContent="Rp 0"; noteEl.textContent="Isi Maps/GPS untuk hitung ongkir";}
-  else{
-    const d=haversine(WARUNG.lat,WARUNG.lng,coords.lat,coords.lng); curJarak=d;
-    if(d<0.5){curOngkir=0; ongkirEl.textContent="Gratis"; noteEl.textContent="Gratis <500m • "+d.toFixed(2)+"km";}
-    else if(d>5){curOngkir=0; ongkirEl.textContent="Tolak"; noteEl.textContent=d.toFixed(2)+"km > maks 5km";}
-    else{const blocks=Math.ceil(d*1000/100); curOngkir=blocks*300; ongkirEl.textContent=fmt(curOngkir); noteEl.textContent=d.toFixed(2)+"km • "+blocks+"x100m x Rp300";}
+  console.log('updateOngkir - mapsVal:', mapsVal, 'coords:', coords);
+  if(!coords){
+    curOngkir=0;curJarak=null; 
+    ongkirEl.textContent="Rp 0"; 
+    noteEl.textContent="Isi Maps/GPS untuk hitung ongkir";
+    console.log('ONGKIR: 0 (belum ada coords)');
+  } else {
+    const d=haversine(WARUNG.lat,WARUNG.lng,coords.lat,coords.lng); 
+    curJarak=d;
+    console.log('JARAK:', d, 'km dari warung');
+    if(d < 0.5){
+      curOngkir=0; 
+      ongkirEl.textContent="Gratis"; 
+      noteEl.textContent="Gratis <500m • "+d.toFixed(2)+"km";
+      console.log('ONGKIR: Gratis (<500m)');
+    } else if(d > 5){
+      curOngkir=0; 
+      ongkirEl.textContent="Tolak"; 
+      noteEl.textContent=d.toFixed(2)+"km > maks 5km (di luar jangkauan)";
+      console.log('ONGKIR: Tolak (>5km)');
+    } else {
+      const blocks=Math.ceil((d*1000)/100); 
+      curOngkir=blocks*300; 
+      ongkirEl.textContent=fmt(curOngkir); 
+      noteEl.textContent=d.toFixed(2)+"km • "+blocks+"x100m x Rp300";
+      console.log('ONGKIR: Rp'+curOngkir+' ('+blocks+' blok)');
+    }
   }
   const grand=sub+curOngkir;
   document.getElementById('totalVal').textContent=fmt(grand);
