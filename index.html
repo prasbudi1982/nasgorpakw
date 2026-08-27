@@ -54,7 +54,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#0A0A0A;color:#fff}
 <input id="custName" placeholder="Nama *" class="w-full rounded-full bg-[#0F0F0F] border border-white/10 px-5 py-3 text-[13px] outline-none">
 <input id="custPhone" placeholder="HP *" class="w-full rounded-full bg-[#0F0F0F] border border-white/10 px-5 py-3 text-[13px] outline-none">
 <textarea id="custAddr" placeholder="Alamat lengkap *" class="w-full rounded-[18px] bg-[#0F0F0F] border border-white/10 px-5 py-3 text-[13px] outline-none min-h-[70px]"></textarea>
-<div class="flex gap-2"><input id="custMaps" readonly placeholder="Klik GPS untuk isi Maps otomatis" class="flex-1 rounded-full bg-[#0F0F0F] border border-white/10 px-5 py-3 text-[12px] outline-none opacity-70 cursor-not-allowed"><button onclick="getGPS()" class="rounded-full bg-white/10 border border-white/10 px-4 text-[11px] font-bold">GPS</button></div>
+<div class="flex gap-2"><input id="custMaps" placeholder="Link Maps / GPS" class="flex-1 rounded-full bg-[#0F0F0F] border border-white/10 px-5 py-3 text-[12px] outline-none"><button onclick="getGPS()" class="rounded-full bg-white/10 border border-white/10 px-4 text-[11px] font-bold">GPS</button></div>
 </div>
 <div id="cartList" class="mt-6 space-y-3"></div>
 <div class="mt-6 rounded-[20px] bg-[#0F0F0F] border border-white/10 p-4 space-y-2">
@@ -88,7 +88,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#0A0A0A;color:#fff}
 
 <script>
 const API_BASE="https://nasgor-api.welybudiprasetya.workers.dev";
-const WARUNG={lat:-8.0959296,lng:111.6350959};
+const WARUNG={lat:-8.0959259,lng:111.6351459}; // https://www.google.com/maps?q=-8.0959259,111.6351459
 const PRICE_PER_100M=300, FREE_KM=0.5, MAX_KM=5;
 let menuDB=[], cart=[], curOngkir=0, curJarak=null, curOrderId=null;
 let selectedMenu=null, selVariant=null, selPedas=null, addonQty={}, detailQty=1;
@@ -175,68 +175,35 @@ function incQty(id){const it=cart.find(c=>c.lineId==id); if(it){it.qty++; it.tot
 function decQty(id){const it=cart.find(c=>c.lineId==id); if(it){it.qty--; if(it.qty<=0) cart=cart.filter(c=>c.lineId!=id); else it.totalPrice=it.unitPrice*it.qty; renderCart(); updateOngkir();}}
 function removeItem(id){cart=cart.filter(c=>c.lineId!=id); renderCart(); updateOngkir();}
 function openCheckout(){document.getElementById('checkoutModal').classList.remove('hidden'); updateOngkir();}
-function getGPS(){
-  const btn=document.querySelector('button[onclick="getGPS()"]');
-  const origText=btn?btn.textContent:'GPS';
-  if(btn){btn.textContent='...'; btn.disabled=true;}
-  if(!navigator.geolocation){
-    alert('GPS tidak didukung HP ini');
-    if(btn){btn.textContent=origText; btn.disabled=false;}
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    p=>{
-      const lat=p.coords.latitude;
-      const lng=p.coords.longitude;
-      console.log('GPS customer:', lat, lng, 'akurasi:', p.coords.accuracy+'m');
-      // Cek kalau koordinat sama persis dengan warung (kemungkinan cache)
-      if(Math.abs(lat-(-8.0959296))<0.00005 && Math.abs(lng-111.6350959)<0.00005){
-        console.warn('GPS terdeteksi sama dengan warung, mungkin masih cache - coba lagi');
-      }
-      document.getElementById('custMaps').value="https://www.google.com/maps?q="+lat+","+lng;
-      updateOngkir();
-      if(btn){btn.textContent='OK'; setTimeout(()=>{btn.textContent=origText; btn.disabled=false;}, 1000);}
-    },
-    err=>{
-      console.error('GPS error', err);
-      alert('Gagal ambil GPS: '+err.message+' - Pastikan izin lokasi aktif');
-      if(btn){btn.textContent=origText; btn.disabled=false;}
-    },
-    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
-  );
-}
+function getGPS(){if(!navigator.geolocation){window.open('https://maps.google.com');return;} navigator.geolocation.getCurrentPosition(p=>{document.getElementById('custMaps').value="https://www.google.com/maps?q="+p.coords.latitude+","+p.coords.longitude; updateOngkir();});}
 function updateOngkir(){
   const mapsVal=document.getElementById('custMaps').value.trim();
-  const coords=parseLatLng(mapsVal);
+  const coords=parseLatLng(mapsVal); // alamat customer dari form GPS
   const sub=cart.reduce((a,b)=>a+b.totalPrice,0);
   document.getElementById('subtotalVal').textContent=fmt(sub);
   const ongkirEl=document.getElementById('ongkirVal'); const noteEl=document.getElementById('ongkirNote');
-  console.log('updateOngkir - mapsVal:', mapsVal, 'coords:', coords);
   if(!coords){
     curOngkir=0;curJarak=null; 
     ongkirEl.textContent="Rp 0"; 
-    noteEl.textContent="Isi Maps/GPS untuk hitung ongkir";
-    console.log('ONGKIR: 0 (belum ada coords)');
+    noteEl.textContent="Isi Maps/GPS customer untuk hitung ongkir";
   } else {
+    // Hitung jarak WARUNG (dari kode) vs CUSTOMER (dari form)
     const d=haversine(WARUNG.lat,WARUNG.lng,coords.lat,coords.lng); 
     curJarak=d;
-    console.log('JARAK:', d, 'km dari warung');
     if(d < 0.5){
       curOngkir=0; 
       ongkirEl.textContent="Gratis"; 
-      noteEl.textContent="Gratis <500m • "+d.toFixed(2)+"km";
-      console.log('ONGKIR: Gratis (<500m)');
+      noteEl.textContent="Gratis <500m • "+d.toFixed(3)+"km dari warung";
     } else if(d > 5){
       curOngkir=0; 
-      ongkirEl.textContent="Tolak"; 
-      noteEl.textContent=d.toFixed(2)+"km > maks 5km (di luar jangkauan)";
-      console.log('ONGKIR: Tolak (>5km)');
+      ongkirEl.textContent="Ditolak"; 
+      noteEl.textContent=d.toFixed(3)+"km >5km - Tolak (warung ke customer)";
     } else {
-      const blocks=Math.ceil((d*1000)/100); 
-      curOngkir=blocks*300; 
+      const meters=d*1000;
+      const blocks=Math.ceil(meters/100);
+      curOngkir=blocks*300;
       ongkirEl.textContent=fmt(curOngkir); 
-      noteEl.textContent=d.toFixed(2)+"km • "+blocks+"x100m x Rp300";
-      console.log('ONGKIR: Rp'+curOngkir+' ('+blocks+' blok)');
+      noteEl.textContent=d.toFixed(3)+"km • "+blocks+"x100m x Rp300 (warung ke customer)";
     }
   }
   const grand=sub+curOngkir;
@@ -263,7 +230,11 @@ function bayar(method){
   if(!name){alert('Nama wajib'); return;}
   if(!phone){alert('HP wajib'); return;}
   if(method!=='pickup' && !addr){alert('Alamat wajib'); return;}
-  if(!mapsCheck){alert('Maps / GPS wajib diisi - klik tombol GPS atau paste link Google Maps'); return;}
+  if(!mapsCheck){alert('Maps / GPS customer wajib diisi - klik tombol GPS'); return;}
+  if(curJarak!==null && curJarak>5 && method!=='pickup'){
+    alert('Jarak warung ke customer '+curJarak.toFixed(2)+'km >5km. Pesanan delivery ditolak. Pilih Pickup.');
+    return;
+  }
 
   const sub=cart.reduce((a,b)=>a+b.totalPrice,0);
   const grand=sub+curOngkir;
